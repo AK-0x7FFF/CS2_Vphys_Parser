@@ -335,6 +335,8 @@ def main() -> None:
     index = 0
     while True:
         collision = parser.search("m_parts", 0, "m_rnShape", "m_hulls", index, "m_nCollisionAttributeIndex")
+        if collision is None: break
+
         if collision == 0:
             # with TimeCounter('      search'):
             vertices_raw = parser.search("m_parts", 0, "m_rnShape", "m_hulls", index, "m_Hull", "m_Vertices")
@@ -379,14 +381,15 @@ def main() -> None:
                     ))
 
                     edge = next_edge
-            index += 1
-        else: break
+        index += 1
 
 
     index = 0
     while True:
         collision = parser.search("m_parts", 0, "m_rnShape", "m_meshes", index, "m_nCollisionAttributeIndex")
+        if collision is None: break
         if collision == 0:
+
             triangles_raw = parser.search("m_parts", 0, "m_rnShape", "m_meshes", index, "m_Mesh", "m_Triangles")
             vertices_raw = parser.search("m_parts", 0, "m_rnShape", "m_meshes", index, "m_Mesh", "m_Vertices")
 
@@ -413,8 +416,9 @@ def main() -> None:
                     vertices[triangles_merged[i + 2]],
                 ))
 
-            index += 1
-        else: break
+            # print(triangles_merged)
+        index += 1
+
 
 
     from pickle import dump, HIGHEST_PROTOCOL
@@ -432,7 +436,6 @@ def main() -> None:
             byte_raw.append(point.y)
             byte_raw.append(point.z)
     triangles_byte = " ".join([pack_float(i) for i in byte_raw])
-    print(triangles_byte)
     with open("output.tri", "w") as file:
         file.write(triangles_byte)
 
