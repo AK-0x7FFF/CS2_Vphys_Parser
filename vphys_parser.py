@@ -1,7 +1,4 @@
-from dataclasses import dataclass
-from struct import unpack
 from typing import Union
-
 
 
 class VphysConst:
@@ -17,28 +14,14 @@ class VphysConst:
     LIST_TYPE = 0x3
     HEX_TYPE = 0x4
 
-    # BOUNDARY_TYPE_MAPPING = {
-    #     "{": DICT_PREFIX,
-    #     "}": DICT_SUFFIX,
-    #     "#[": HEX_PREFIX,
-    #     "[": LIST_PREFIX,
-    #     "]": LIST_SUFFIX,
-    # }
-
 
 class VphysContainer:
     def __init__(self, parser: "VphysParser", boundary_start: int) -> None:
         self.parser = parser
 
         self.boundary_start = boundary_start
-        # self.__boundary_end: int | None = None
         self.boundary_end = self.get_boundary_end(boundary_start)
 
-    # @property
-    # def boundary_end(self) -> int | None:
-    #     if self.__boundary_end is None:
-    #         self.__boundary_end = self.get_boundary_end(self.boundary_start)
-    #     return self.__boundary_end
 
     def get_boundary_end(self, start_line: int) -> int | None:
         if start_line not in self.parser.object_boundaries.keys(): ValueError()
@@ -54,21 +37,17 @@ class VphysContainer:
         }.get(prefix_type, None)
         if prefix_type is None or suffix_type is None: return None
 
-        # prefix_count, suffix_count = 1, 0
-        # for line, boundary_type in {x: y for x, y in self.parser.object_boundaries.items() if x > start_line}.items():
-        #     if boundary_type == prefix_type: prefix_count += 1
-        #     if boundary_type == suffix_type: suffix_count += 1
-        #
-        #     if prefix_type == VphysConst.LIST_PREFIX:
-        #         if boundary_type == VphysConst.HEX_PREFIX: prefix_count += 1
-        #
-        #     if prefix_count == suffix_count:
-        #         self.parser.object_boundaries_box_cache.update({start_line: line})
-        #         return line
-            # print(prefix_count, suffix_count)
         prefix_count, suffix_count = 1, 0
 
-        for line, boundary_type in ((line_filtering, boundary_type_filtering) for line_filtering, boundary_type_filtering in self.parser.object_boundaries.items() if line_filtering > start_line):
+        # time cast is too big (28ms)
+        # for line, boundary_type in {x: y for x, y in self.parser.object_boundaries.items() if x > start_line}.items():
+        # time cast is too big (24ms)
+        # for line, boundary_type in filter(lambda line_filtering: line_filtering[0] > start_line, self.parser.object_boundaries.items()):
+        for line, boundary_type in (
+                (line_filtering, boundary_type_filtering)
+                for line_filtering, boundary_type_filtering in self.parser.object_boundaries.items()
+                if line_filtering > start_line
+        ):
             if boundary_type == prefix_type: prefix_count += 1
             if boundary_type == suffix_type: suffix_count += 1
 
@@ -84,6 +63,10 @@ class VphysContainer:
 class VphysList(VphysContainer):
     def __init__(self, parser: "VphysParser", boundary_start: int):
         super().__init__(parser, boundary_start)
+
+    def __getitem__(self, index: int) -> Union[int, float, "VphysDict", "VphysList", "VphysHex", None]:
+        if isinstance(index, int): raise ValueError()
+        return self.get_index(index)
 
     def get_index_value(self, target_line: int) -> Union[float, "VphysDict", "VphysList", "VphysHex", None]:
         content = self.parser.get_line_content(target_line)
@@ -145,6 +128,7 @@ class VphysDict(VphysContainer):
         super().__init__(parser, boundary_start)
 
     def __getitem__(self, keyword: str) -> Union[int, float, "VphysDict", "VphysList", "VphysHex", None]:
+        if isinstance(keyword, str): ValueError()
         return self.get_var(keyword)
 
     def get_var_name(self, target_line: int) -> str | None:
@@ -184,6 +168,7 @@ class VphysDict(VphysContainer):
             if var_name is not None and var_name == target_var_name:
                 return self.get_var_value(line_index)
 
+            # 4 more readable
             # line_index = line_index_next + 1 if (line_index_next := self.get_boundary_end(line_index)) is not None else line_index + 1
             line_index = self.get_boundary_end(line_index) + 1 if self.parser.get_boundary_mark_type(line_index) is not None else line_index + 1
         return None
@@ -282,164 +267,3 @@ class VphysParser:
         return target_object
 
 
-@dataclass
-class Vec3:
-    x: float
-    y: float
-    z: float
-
-@dataclass
-class Triangle:
-    p1: Vec3
-    p2: Vec3
-    p3: Vec3
-
-@dataclass
-class Edge:
-    next: int
-    twin: int
-    origin: int
-    face: int
-
-
-def bytes_merge(bytes_str: bytes, size: int) -> list[bytes]:
-    bytes_count = len(bytes_str) // size
-
-    a = list()
-    for index in range(bytes_count):
-        index *= size
-        a.append(bytes_str[index:index + size])
-
-    return a
-
-
-class BytesUnpacker:
-    @staticmethod
-    def uint8(value: bytes) -> int:
-        return unpack("B", value)[0]
-
-    @staticmethod
-    def int32(value: bytes) -> int:
-        return unpack("i", value)[0]
-
-    @staticmethod
-    def float(value: bytes) -> float:
-        return unpack("f", value)[0]
-
-
-
-def main() -> None:
-    parser = VphysParser.from_file_name("world_physics.vphys")
-    saved_triangles = list()
-
-    index = 0
-    while True:
-        collision = parser.search("m_parts", 0, "m_rnShape", "m_hulls", index, "m_nCollisionAttributeIndex")
-        if collision is None: break
-
-        if collision == 0:
-            # with TimeCounter('      search'):
-            vertices_raw = parser.search("m_parts", 0, "m_rnShape", "m_hulls", index, "m_Hull", "m_Vertices")
-            faces_raw = parser.search("m_parts", 0, "m_rnShape", "m_hulls", index, "m_Hull", "m_Faces")
-            edges_raw = parser.search("m_parts", 0, "m_rnShape", "m_hulls", index, "m_Hull", "m_Edges")
-
-            vertices = list()
-            vertices_merged = bytes_merge(vertices_raw, 4)
-            for i in range(len(vertices_merged) // 3):
-                i *= 3
-                vertices.append(Vec3(
-                    BytesUnpacker.float(vertices_merged[i]),
-                    BytesUnpacker.float(vertices_merged[i + 1]),
-                    BytesUnpacker.float(vertices_merged[i + 2])
-                ))
-
-            faces = [
-                BytesUnpacker.uint8(byte)
-                for byte in bytes_merge(faces_raw, 1)
-            ]
-
-            edges = list()
-            edges_merged = bytes_merge(edges_raw, 1)
-            for i in range(len(edges_merged) // 4):
-                i *= 4
-                edges.append(Edge(
-                    BytesUnpacker.uint8(edges_merged[i]),
-                    BytesUnpacker.uint8(edges_merged[i + 1]),
-                    BytesUnpacker.uint8(edges_merged[i + 2]),
-                    BytesUnpacker.uint8(edges_merged[i + 3])
-                ))
-
-            for start_edge in faces:
-                edge = edges[start_edge].next
-                while edge != start_edge:
-                    next_edge = edges[edge].next
-
-                    saved_triangles.append(Triangle(
-                        vertices[edges[start_edge].origin],
-                        vertices[edges[edge].origin],
-                        vertices[edges[next_edge].origin],
-                    ))
-
-                    edge = next_edge
-        index += 1
-
-
-    index = 0
-    while True:
-        collision = parser.search("m_parts", 0, "m_rnShape", "m_meshes", index, "m_nCollisionAttributeIndex")
-        if collision is None: break
-        if collision == 0:
-
-            triangles_raw = parser.search("m_parts", 0, "m_rnShape", "m_meshes", index, "m_Mesh", "m_Triangles")
-            vertices_raw = parser.search("m_parts", 0, "m_rnShape", "m_meshes", index, "m_Mesh", "m_Vertices")
-
-            vertices = list()
-            vertices_merged = bytes_merge(vertices_raw, 4)
-            for i in range(len(vertices_merged) // 3):
-                i *= 3
-                vertices.append(Vec3(
-                    BytesUnpacker.float(vertices_merged[i]),
-                    BytesUnpacker.float(vertices_merged[i + 1]),
-                    BytesUnpacker.float(vertices_merged[i + 2])
-                ))
-
-            # triangles_merged = bytes_merge(triangles_raw, 4)
-            triangles_merged = [
-                BytesUnpacker.int32(byte)
-                for byte in bytes_merge(triangles_raw, 4)
-            ]
-            for i in range(len(triangles_merged) // 3):
-                i *= 3
-                saved_triangles.append(Triangle(
-                    vertices[triangles_merged[i]],
-                    vertices[triangles_merged[i + 1]],
-                    vertices[triangles_merged[i + 2]],
-                ))
-
-            # print(triangles_merged)
-        index += 1
-
-
-
-    from pickle import dump, HIGHEST_PROTOCOL
-    with open("output.pkl", "wb") as file:
-        dump(saved_triangles, file, protocol=HIGHEST_PROTOCOL)
-
-    from struct import pack
-    def pack_float(value: float) -> str:
-        return pack("f", value).hex(" ").upper()
-    byte_raw = list()
-
-    for triangle in saved_triangles:
-        for point in (triangle.p1, triangle.p2, triangle.p3):
-            byte_raw.append(point.x)
-            byte_raw.append(point.y)
-            byte_raw.append(point.z)
-    triangles_byte = " ".join([pack_float(i) for i in byte_raw])
-    with open("output.tri", "w") as file:
-        file.write(triangles_byte)
-
-
-
-if __name__ == '__main__':
-    main()
