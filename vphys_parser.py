@@ -64,7 +64,7 @@ class VphysList(VphysContainer):
     def __init__(self, parser: "VphysParser", boundary_start: int):
         super().__init__(parser, boundary_start)
 
-    def __getitem__(self, index: int) -> Union[int, float, "VphysDict", "VphysList", "VphysHex", None]:
+    def __getitem__(self, index: int) -> Union[float, "VphysDict", "VphysList", "VphysHex", None]:
         if isinstance(index, int): raise ValueError()
         return self.get_index(index)
 
