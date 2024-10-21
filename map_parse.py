@@ -71,7 +71,7 @@ def write_tri(file_name: str, triangles: Iterable[Triangle]) -> None:
 
 
 def main() -> None:
-    parser = VphysParser.from_file_name("world_physics.vphys")
+    parser = VphysParser.from_file_name("parse_example.vphys")
     saved_triangles = list()
 
     index = 0
@@ -180,7 +180,7 @@ def main() -> None:
 #             if self.is_print:
 #                 print("%s: %.8f ms" % (self.prefix, (perf_counter() - self.start_time) * 1000))
 #
-#     with open("world_physics.vphys", "r") as vphys_file:
+#     with open("parse_example.vphys", "r") as vphys_file:
 #         vphys_content = vphys_file.read()
 #
 #         with TimeCounter("VphysParser __init__"):
