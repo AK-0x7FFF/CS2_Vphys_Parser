@@ -1,18 +1,14 @@
+from enum import IntEnum
 from typing import Union
 
 
-class VphysConst:
-    DICT_PREFIX = 0x0
-    DICT_SUFFIX = 0x1
-    LIST_PREFIX = 0x2
-    HEX_PREFIX = 0x3
-    LIST_SUFFIX = HEX_SUFFIX = 0x4
 
-    INT_TYPE = 0x0
-    FLOAT_TYPE = 0x1
-    DICT_TYPE = 0x2
-    LIST_TYPE = 0x3
-    HEX_TYPE = 0x4
+class VphysBoundaryType(IntEnum):
+    DICT_PREFIX         = 0x0
+    DICT_SUFFIX         = 0x1
+    LIST_PREFIX         = 0x2
+    HEX_PREFIX          = 0x3
+    LIST_AND_HEX_SUFFIX = 0x4
 
 
 class VphysContainer:
@@ -31,9 +27,9 @@ class VphysContainer:
 
         prefix_type = self.parser.get_boundary_mark_type(start_line)
         suffix_type = {
-            VphysConst.DICT_PREFIX: VphysConst.DICT_SUFFIX,
-            VphysConst.LIST_PREFIX: VphysConst.LIST_SUFFIX,
-            VphysConst.HEX_PREFIX: VphysConst.HEX_SUFFIX,
+            VphysBoundaryType.DICT_PREFIX: VphysBoundaryType.DICT_SUFFIX,
+            VphysBoundaryType.LIST_PREFIX: VphysBoundaryType.LIST_AND_HEX_SUFFIX,
+            VphysBoundaryType.HEX_PREFIX: VphysBoundaryType.LIST_AND_HEX_SUFFIX,
         }.get(prefix_type, None)
         if prefix_type is None or suffix_type is None: return None
 
@@ -51,13 +47,12 @@ class VphysContainer:
             if boundary_type == prefix_type: prefix_count += 1
             if boundary_type == suffix_type: suffix_count += 1
 
-            if prefix_type == VphysConst.LIST_PREFIX:
-                if boundary_type == VphysConst.HEX_PREFIX: prefix_count += 1
+            if prefix_type == VphysBoundaryType.LIST_PREFIX:
+                if boundary_type == VphysBoundaryType.HEX_PREFIX: prefix_count += 1
 
             if prefix_count == suffix_count:
                 self.parser.object_boundaries_box_cache.update({start_line: line})
                 return line
-
 
 
 class VphysList(VphysContainer):
@@ -72,11 +67,11 @@ class VphysList(VphysContainer):
         content = self.parser.get_line_content(target_line)
 
         match self.parser.get_boundary_mark_type(target_line):
-            case VphysConst.DICT_PREFIX:
+            case VphysBoundaryType.DICT_PREFIX:
                 return VphysDict(self.parser, target_line)
-            case VphysConst.LIST_PREFIX:
+            case VphysBoundaryType.LIST_PREFIX:
                 return VphysList(self.parser, target_line)
-            case VphysConst.HEX_PREFIX:
+            case VphysBoundaryType.HEX_PREFIX:
                 return VphysHex(self.parser, target_line)
             case None:
                 return float(content.replace(",", ""))
@@ -116,7 +111,7 @@ class VphysList(VphysContainer):
 
             if var_type is None: line_index_next = line_index
             else:
-                if var_type not in (VphysConst.DICT_PREFIX, VphysConst.LIST_PREFIX, VphysConst.HEX_PREFIX): return None
+                if var_type not in (VphysBoundaryType.DICT_PREFIX, VphysBoundaryType.LIST_PREFIX, VphysBoundaryType.HEX_PREFIX): return None
                 line_index_next = boundary_end if (boundary_end := self.get_boundary_end(line_index)) is not None else line_index
 
             self.parser.list_index_cache.setdefault(self.boundary_start, {}).update({read_index: (line_index, line_index_next)})
@@ -137,7 +132,7 @@ class VphysDict(VphysContainer):
         if len(target_content_split) != 2: return None
         return target_content_split[0]
 
-    def get_var_value(self, target_line: int) -> Union[int, float, "VphysDict", VphysList, "VphysHex", None]:
+    def get_var_value(self, target_line: int) -> Union[int, float, "VphysDict", "VphysList", "VphysHex", None]:
         target_content_split = self.parser.get_line_content(target_line).split(" = ")
         if len(target_content_split) != 2: return None
         content_var = target_content_split[1]
@@ -149,11 +144,11 @@ class VphysDict(VphysContainer):
             target_line += 1
 
             match self.parser.get_boundary_mark_type(target_line):
-                case VphysConst.DICT_PREFIX:
+                case VphysBoundaryType.DICT_PREFIX:
                     return VphysDict(self.parser, target_line)
-                case VphysConst.LIST_PREFIX:
+                case VphysBoundaryType.LIST_PREFIX:
                     return VphysList(self.parser, target_line)
-                case VphysConst.HEX_PREFIX:
+                case VphysBoundaryType.HEX_PREFIX:
                     return VphysHex(self.parser, target_line)
             return None
 
@@ -186,18 +181,6 @@ class VphysHex(VphysContainer):
 
 
 class VphysParser:
-    DICT_PREFIX = 0x0
-    DICT_SUFFIX = 0x1
-    LIST_PREFIX = 0x2
-    HEX_PREFIX = 0x3
-    LIST_SUFFIX = HEX_SUFFIX = 0x4
-
-    INT_TYPE = 0x0
-    FLOAT_TYPE = 0x1
-    DICT_TYPE = 0x2
-    LIST_TYPE = 0x3
-    HEX_TYPE = 0x4
-
     def __init__(self, content: str) -> None:
         self.content = content.replace("\t", "").splitlines()
         self.object_boundaries = self.object_boundaries_build(self.content)
@@ -219,14 +202,14 @@ class VphysParser:
         return self.content[target_line].lstrip()
 
 
-    def get_boundary_mark_type(self, target_line: int) -> int | None:
+    def get_boundary_mark_type(self, target_line: int) -> VphysBoundaryType | None:
         content = self.get_line_content(target_line).replace(",", "")
         return {
-            "{": VphysConst.DICT_PREFIX,
-            "}": VphysConst.DICT_SUFFIX,
-            "#[": VphysConst.HEX_PREFIX,
-            "[": VphysConst.LIST_PREFIX,
-            "]": VphysConst.LIST_SUFFIX,
+            "{": VphysBoundaryType.DICT_PREFIX,
+            "}": VphysBoundaryType.DICT_SUFFIX,
+            "#[": VphysBoundaryType.HEX_PREFIX,
+            "[": VphysBoundaryType.LIST_PREFIX,
+            "]": VphysBoundaryType.LIST_AND_HEX_SUFFIX,
         }.get(content, None)
 
 
@@ -245,8 +228,8 @@ class VphysParser:
             object_boundaries.update({line: boundary_type})
         boundaries = list(object_boundaries.values())
         if (
-            boundaries.count(VphysConst.DICT_PREFIX) != boundaries.count(VphysConst.DICT_SUFFIX) or
-            (boundaries.count(VphysConst.LIST_PREFIX) + boundaries.count(VphysConst.HEX_PREFIX)) != boundaries.count(VphysConst.LIST_SUFFIX)
+            boundaries.count(VphysBoundaryType.DICT_PREFIX) != boundaries.count(VphysBoundaryType.DICT_SUFFIX) or
+            (boundaries.count(VphysBoundaryType.LIST_PREFIX) + boundaries.count(VphysBoundaryType.HEX_PREFIX)) != boundaries.count(VphysBoundaryType.LIST_AND_HEX_SUFFIX)
         ):
             raise
 
@@ -265,5 +248,3 @@ class VphysParser:
             else: raise ValueError()
 
         return target_object
-
-
