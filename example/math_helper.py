@@ -22,6 +22,9 @@ class Vec2:
         elif isinstance(item, str): return dict(x=self.x, y=self.y)[item]
         else: raise ValueError()
 
+    def __len__(self) -> int:
+        return 2
+
     @classmethod
     def from_dict(cls, dict: dict[str, float | None]) -> "Vec2":
         x: float = dict.get("x", None)
@@ -29,13 +32,6 @@ class Vec2:
         if None in (x, y): raise ValueError()
 
         return Vec2(x, y)
-
-
-    def to_list(self) -> list[float]:
-        return [
-            self.x,
-            self.y
-        ]
 
     def __add__(self, other) -> "Vec2":
         if not isinstance(other, Vec2): return NotImplemented
@@ -94,6 +90,9 @@ class Vec3:
         if None in (x, y, z): raise ValueError()
 
         return Vec3(x, y, z)
+
+    def __len__(self) -> int:
+        return 3
 
     def __add__(self, other) -> "Vec3":
         if not isinstance(other, Vec3): return NotImplemented

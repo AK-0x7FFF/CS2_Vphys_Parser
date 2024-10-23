@@ -1,6 +1,7 @@
 from operator import itemgetter
 from pickle import load
 from struct import unpack
+from time import perf_counter
 
 from .kd_tree import KdTree
 from .math_helper import Triangle, Vec3, world_2_screen, Vec2
@@ -8,8 +9,16 @@ from .offsets import LOCAL_PLAYER_PAWN, VIEW_MATRIX, M_V_OLD_ORIGIN
 from .pyMeow import pyMeow as meow
 from .pyMeow import Module
 from .pyMeow.process import Process
-from vphys_2_tri_algo_1 import TimeCounter
 
+
+class TimeCounter:
+    def __init__(self, prefix: str, is_print: bool = False) -> None:
+        self.prefix = prefix
+        self.is_print = is_print
+    def __enter__(self) -> None: self.start_time = perf_counter()
+    def __exit__(self, _, __, ___) -> None:
+        if self.is_print:
+            print("%s: %.8f ms" % (self.prefix, (perf_counter() - self.start_time) * 1000))
 
 
 def read_triangles_by_pkl(file_location: str) -> list[Triangle]:
@@ -47,8 +56,7 @@ def main() -> None:
     # local_player_head_pos_address = cs2.u64(cs2.u64(cs2.u64(local_Player_pawn_address + M_P_GAME_SCENE_NODE) + M_MODEL_STATE) + 0x80) + 0x20 * 6
 
     triangles = read_triangles_by_pkl("output.pkl")
-    with TimeCounter("build_kd_tree", True):
-        kd_tree = KdTree(triangles)
+    kd_tree = KdTree(triangles)
 
     target_points = (
         Vec3(124, -357, -110),
@@ -77,8 +85,8 @@ def main() -> None:
                 point = world_2_screen(view_matrix, screen, target_point)
                 if point is not None:
                     meow.draw_circle(
-                        *point, 2,
-                        meow.new_color(255, 0, 0, 255) if intersects is not None else meow.new_color(0, 255, 0, 255)
+                        *point, radius=2,
+                        color=meow.new_color(255, 0, 0, 255) if intersects is not None else meow.new_color(0, 255, 0, 255)
                     )
 
                 if intersects is not None:
@@ -89,8 +97,8 @@ def main() -> None:
                         continue
 
                     meow.draw_triangle_lines(
-                        *p1.to_list(), *p2.to_list(), *p3.to_list(),
-                        meow.new_color(255, 255, 255, 255)
+                        *p1, *p2, *p3,
+                        color=meow.new_color(255, 255, 255, 255)
                     )
             meow.end_drawing()
 
