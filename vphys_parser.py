@@ -20,7 +20,7 @@ class VphysContainer:
 
 
     def get_boundary_end(self, start_line: int) -> int | None:
-        if start_line not in self.parser.object_boundaries.keys(): ValueError()
+        if start_line not in self.parser.object_boundaries.keys(): raise ValueError("start_line %i is legal." % start_line)
 
         if (end_line_from_cache := self.parser.object_boundaries_box_cache.get(start_line, None)) is not None:
             return end_line_from_cache
@@ -60,7 +60,7 @@ class VphysList(VphysContainer):
         super().__init__(parser, boundary_start)
 
     def __getitem__(self, index: int) -> Union[float, "VphysDict", "VphysList", "VphysHex", None]:
-        if isinstance(index, int): raise ValueError()
+        if not isinstance(index, int): raise ValueError("keyword argument should be str.")
         return self.get_index(index)
 
     def get_index_value(self, target_line: int) -> Union[float, "VphysDict", "VphysList", "VphysHex", None]:
@@ -123,7 +123,7 @@ class VphysDict(VphysContainer):
         super().__init__(parser, boundary_start)
 
     def __getitem__(self, keyword: str) -> Union[int, float, "VphysDict", "VphysList", "VphysHex", None]:
-        if isinstance(keyword, str): ValueError()
+        if not isinstance(keyword, str): raise ValueError("keyword argument should be str.")
         return self.get_var(keyword)
 
     def get_var_name(self, target_line: int) -> str | None:
@@ -230,8 +230,7 @@ class VphysParser:
         if (
             boundaries.count(VphysBoundaryType.DICT_PREFIX) != boundaries.count(VphysBoundaryType.DICT_SUFFIX) or
             (boundaries.count(VphysBoundaryType.LIST_PREFIX) + boundaries.count(VphysBoundaryType.HEX_PREFIX)) != boundaries.count(VphysBoundaryType.LIST_AND_HEX_SUFFIX)
-        ):
-            raise
+        ): raise ValueError("Missing closed sign.")
 
         return object_boundaries
 
@@ -245,6 +244,6 @@ class VphysParser:
                 if target_object is None: return None
             elif isinstance(keyword, int):
                 target_object = target_object.get_index(keyword)
-            else: raise ValueError()
+            else: raise ValueError("Keyword %s does not exist." % keyword)
 
         return target_object
