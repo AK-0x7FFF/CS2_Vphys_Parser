@@ -71,7 +71,7 @@ def write_tri(file_name: str, triangles: Iterable[Triangle]) -> None:
 
 
 def main() -> None:
-    parser = VphysParser.from_file_name("../visibility_check/parse_example.vphys")
+    parser = VphysParser.from_file_name("parse_example.vphys")
     saved_triangles = list()
 
     index = 0
