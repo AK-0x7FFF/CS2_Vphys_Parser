@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from pickle import dump
+from pickle import dump, HIGHEST_PROTOCOL
 from struct import unpack, pack
 from typing import Iterable
 
@@ -53,7 +53,7 @@ class BytesFactory:
 
 def write_pkl(file_name: str, triangles: Iterable[Triangle]) -> None:
     with open(f"{file_name}.pkl", "wb") as file:
-        dump(triangles, file)
+        dump(triangles, file, protocol=HIGHEST_PROTOCOL)
 
 def write_tri(file_name: str, triangles: Iterable[Triangle]) -> None:
     byte_raw = list()
@@ -71,7 +71,7 @@ def write_tri(file_name: str, triangles: Iterable[Triangle]) -> None:
 
 
 def main() -> None:
-    parser = VphysParser.from_file_name("parse_example.vphys")
+    parser = VphysParser.from_file_name("../visibility_check/parse_example.vphys")
     saved_triangles = list()
 
     index = 0
