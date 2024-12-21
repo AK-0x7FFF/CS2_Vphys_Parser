@@ -56,14 +56,14 @@ class VphysContainer:
 
 
 class VphysList(VphysContainer):
-    def __init__(self, parser: "VphysParser", boundary_start: int):
+    def __init__(self, parser: "VphysParser", boundary_start: int) -> None:
         super().__init__(parser, boundary_start)
 
     def __getitem__(self, index: int) -> Union[float, "VphysDict", "VphysList", "VphysHex", None]:
         if not isinstance(index, int): raise ValueError("keyword argument should be str.")
         return self.get_index(index)
 
-    def get_index_value(self, target_line: int) -> Union[float, "VphysDict", "VphysList", "VphysHex", None]:
+    def get_index_value(self, target_line: int) -> Union[bool, float, "VphysDict", "VphysList", "VphysHex", None]:
         content = self.parser.get_line_content(target_line)
 
         match self.parser.get_boundary_mark_type(target_line):
@@ -74,7 +74,14 @@ class VphysList(VphysContainer):
             case VphysBoundaryType.HEX_PREFIX:
                 return VphysHex(self.parser, target_line)
             case None:
-                return float(content.replace(",", ""))
+                content = content.replace(",", "").strip()
+
+                if content.lower() in ("true", "false"):
+                    return content.lower() == "true"
+                elif "." in content:
+                    return float(content)
+                else:
+                    return int(content)
         return None
 
 
@@ -119,7 +126,7 @@ class VphysList(VphysContainer):
 
 
 class VphysDict(VphysContainer):
-    def __init__(self, parser: "VphysParser", boundary_start: int):
+    def __init__(self, parser: "VphysParser", boundary_start: int) -> None:
         super().__init__(parser, boundary_start)
 
     def __getitem__(self, keyword: str) -> Union[int, float, "VphysDict", "VphysList", "VphysHex", None]:
@@ -139,7 +146,12 @@ class VphysDict(VphysContainer):
 
 
         if content_var != "":
-            return float(content_var) if "." in content_var else int(content_var)
+            if content_var.lower() in ("true", "false"):
+                return content_var.lower() == "true"
+            elif "." in content_var:
+                return float(content_var)
+            else:
+                return int(content_var)
         else:
             target_line += 1
 
@@ -170,7 +182,7 @@ class VphysDict(VphysContainer):
 
 
 class VphysHex(VphysContainer):
-    def __init__(self, parser: "VphysParser", boundary_start: int):
+    def __init__(self, parser: "VphysParser", boundary_start: int) -> None:
         super().__init__(parser, boundary_start)
 
     def get_str(self) -> str | None:
